@@ -1,0 +1,75 @@
+version: '2'
+services:
+    redis:
+        image: 'redis:3.2.7'
+
+    postgres:
+        image: postgres:9.6
+        environment:
+            - POSTGRES_USER=airflow
+            - POSTGRES_PASSWORD=airflow
+            - POSTGRES_DB=airflow
+
+    webserver:
+        image: sstumgdocker/docker-airflow-mongotools
+        restart: always
+        depends_on:
+            - postgres
+            - redis
+        environment:
+            - LOAD_EX=n
+            - FERNET_KEY=46BKJoQYlPPOexq0OhDZnIlNepKFf87WFwLbfzqDDho=
+            - EXECUTOR=Celery
+            - PROJECT_NAME=umg-dev
+        volumes:
+            - /opt/airflow/dags:/usr/local/airflow/dags
+            - /opt/airflow/plugins:/usr/local/airflow/plugins
+            - /opt/app:/opt/app
+
+        ports:
+            - "8080:8080"
+        command: webserver
+
+    flower:
+        image: sstumgdocker/docker-airflow-mongotools
+        restart: always
+        depends_on:
+            - redis
+        environment:
+            - EXECUTOR=Celery
+        ports:
+            - "5555:5555"
+        command: flower
+
+    scheduler:
+        image: sstumgdocker/docker-airflow-mongotools
+        restart: always
+        depends_on:
+            - webserver
+        volumes:
+            - /opt/airflow/dags:/usr/local/airflow/dags
+            - /opt/airflow/plugins:/usr/local/airflow/plugins
+            - /opt/app:/opt/app
+
+        environment:
+            - LOAD_EX=n
+            - FERNET_KEY=46BKJoQYlPPOexq0OhDZnIlNepKFf87WFwLbfzqDDho=
+            - EXECUTOR=Celery
+            - PROJECT_NAME=umg-dev
+        command: scheduler
+
+    worker:
+        image: sstumgdocker/docker-airflow-mongotools
+        restart: always
+        depends_on:
+            - scheduler
+        volumes:
+            - /opt/airflow/dags:/usr/local/airflow/dags
+            - /opt/airflow/plugins:/usr/local/airflow/plugins
+            - /opt/app:/opt/app
+
+        environment:
+            - FERNET_KEY=46BKJoQYlPPOexq0OhDZnIlNepKFf87WFwLbfzqDDho=
+            - EXECUTOR=Celery
+            - PROJECT_NAME=umg-dev
+        command: worker
