@@ -193,7 +193,7 @@ $ sudo docker-compose -f airflow-1.8.1.yml up -d
 
 ### Step 7. Test Airflow UI
 
-1. Go to http://<instance ip address>:8080 
+1. Go to http://instance_ip_address:8080 
 You should see Airflow UI. At this point your Airflow server is up and running. Congratulations!
 
 ## Post installation procedures
@@ -204,7 +204,7 @@ This key will be used to connect to your GCP project from Airflow via API
 1. Open terminal on your laptop
 2. Initialize your Google Cloud SDK
 ```
-$gcloud init
+$ gcloud init
 ```
 Choose your project at the prompt
 
