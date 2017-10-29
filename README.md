@@ -222,11 +222,11 @@ svc-swift-api                                       svc-swift-api@umg-swift.iam.
 ```
 Note: this is just an example. Your project will have different accounts
 
-4. Create a key for Compute Engine default service account
+4. Create a key for Compute Engine default service account. Note: you should name the key file as `<your project name>-key.json` 
 ```
 $ gcloud iam service-accounts keys create <your project>-key.json --iam-account=<Compute Engine default service account email>
 ```
-Note: you should name the key file as <project name>-key.json 
+
 
 5. Copy the key file to the Airflow instance
 ```
@@ -247,7 +247,7 @@ $ sudo chmod 644 /opt/app/<your project name>-key.json
 
 1. From the terminal use `gsutil` command to create bucket and the folder for the logs
 ```
-$ gsutil mb gs://<your project>
+$ gsutil mb gs://<your project name>
 ```
 
 Note: if the bucket already exists you will receive an error about that and that's ok. 
@@ -266,7 +266,7 @@ Note: if the bucket already exists you will receive an error about that and that
 * Conn Name: `bigquery_default`
 * Conn Type: `Google Cloud Platform`
 * Project ID: `<your project>`
-* Keyfile Path: `/opt/app/<your project>-key.json`
+* Keyfile Path: `/opt/app/<your project name>-key.json`
 * Scopes: `https://www.googleapis.com/auth/bigquery`
 
 
