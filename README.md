@@ -196,9 +196,9 @@ $ sudo docker-compose -f airflow-1.8.1.yml up -d
 1. Go to http://<instance ip address>:8080 
 You should see Airflow UI. At this point your Airflow server is up and running. Congratulations!
 
-## Post install procedures
+## Post installation procedures
 
-### Create service account key
+### Step 8. Create service account key
 This key will be used to connect to your GCP project from Airflow via API
 
 1. Open terminal on your laptop
@@ -233,22 +233,31 @@ Note: you should name the key file as <project name>-key.json
 $ scp -i ~/<your private ssh key> <your project name>-key.json <your username>@<server ip>:/home/<your username>
 ```
 
-6. From SSH session on your instance change permissions on your key file
-```
-$ sudo chmod 644 <your project name>-key.json
-``` 
-
-7. Place the key file into `/opt/app` directory, so it can be picked up by Docker containers
+6. From SSH session on your instance copy the key file into `/opt/app` directory, so it can be picked up by Docker containers
 ```
 $ sudo cp <your project name>-key.json /opt/app
 ```
 
-### Create BigQuery dataset
+7. Change permissions on your key file
+```
+$ sudo chmod 644 /opt/app/<your project name>-key.json
+``` 
+
+### Step 9. Create GCS project bucket for Airflow logs
+
+1. From the terminal use `gsutil` command to create bucket and the folder for the logs
+```
+$ gsutil mb gs://<your project>
+```
+
+Note: if the bucket already exists you will receive an error about that and that's ok. 
+
+### Step 10. Create BigQuery dataset
 1. Open BigQuery UI in your project and create a new empty dataset. Call it `airflow_training_<your name>`
 
-### Configure Airflow Connections
+### Step 11. Configure Airflow Connections
 
-#### BigQuery Connection
+### BigQuery Connection
 1. From Airflow UI go to `Admin -> Connections`
 
 2. Find `bigquery_default` connection and click `Edit`(pencil icon)
@@ -261,16 +270,65 @@ $ sudo cp <your project name>-key.json /opt/app
 * Scopes: `https://www.googleapis.com/auth/bigquery`
 
 
-### Configure Airflow Variables
+### Step 12. Configure Airflow Variables
 1. From Airflow UI go to `Admin -> Variables`
 
 2. Create the following variables:
-* Key: `spotify_tracks_src`, Value: `umg-partner.spotify.tracks`
-* Key: `spotify_tracks_dst`, Value: `<your project>.<your dataset>.spotify_tracks`
+* Key: `spotify_streams_src`, Value: `umg-partner.spotify.streams`
+* Key: `spotify_streams_dst`, Value: `<your project>.<your dataset>.spotify_streams`
 
-### Copy sample plugin
+### Step 13. Copy sample files
+
+1. Copy `plugins/bq_hook.py`, `plugins/bq_plugin.py` and `dags/lab1.py` files into your home directory on the remote instance
+```
+$ scp -i ~/<your private ssh key> plugins/bq_hook.py <your username>@<server ip>:/home/<your username>
+
+$ scp -i ~/<your private ssh key> plugins/bq_plugin.py <your username>@<server ip>:/home/<your username>
+
+$ scp -i ~/<your private ssh key> dags/lab1.py <your username>@<server ip>:/home/<your username>
+```
+
+2. From your SSH session copy the files from your home directory to Docker container volume folders
+
+```
+$ sudo cp bq_hook.py /opt/airflow/plugins
+
+$ sudo cp bq_plugin.py /opt/airflow/plugins
+
+$ sudo cp lab1.py /opt/airflow/dags
+
+```
+
+### Step 14. Restart Docker containers
+
+1. From your SSH session on remote instance login as `airflow` user with `airflow` password and navigate to home directory
+```
+$ su airflow
+
+$ cd ~
+```
+
+2. Restart Docker containers
+```
+$ sudo docker-compose -f airflow-1.8.1.yml restart
+```
 
 
+### Step 15. Test Lab1 DAG
+
+1. Go to Airflow UI and make sure that you have `lab1` DAG appearing on the home page.
+
+2. Toggle `On/Off` switch to turn the DAG on
+
+3. Click `Run` button which looks like a play button to start the DAG
+
+4. Click on the `lab1` DAG's name on the home page, to go inside the DAG
+
+5. Refresh your browser to see how the DAG is being executed. 
+
+6. If it finishes with `load_spotify_streams` box coloured in dark green, your set up is correct. Congratulations and you may open a bottle of champaign to celebrate!
+
+7. If the `load_spotify_streams` box is red, click on the box, go to `View Log`, scroll all the way to the bottom and let us know what is the error reported. We will assist you. 
 
 
 
