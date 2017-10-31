@@ -5,7 +5,7 @@ Please read the content of this page carefully and make sure that you have every
 
 If you have any questions about the training, please direct them to Dmitri Safin (dmitri.safin@umusic.com) and cc Chris Blakey (Christopher.Blakey@umusic.com)
 
-Note that all the instructions here are provided assuming that you have Mac laptop. If you have Windows, please let us know and we'll add instructions for Windows.
+> Note that all the instructions here are provided assuming that you have Mac laptop. If you have Windows, please let us know and we'll add instructions for Windows.
 
 ## Prerequisites
 ### Skills
@@ -127,6 +127,14 @@ $ cd data-science-summit-airflow
 
 ```
 
+> Note: if you don't have GitHub access set up via HTTPS, you may try an alternative command via SSH:
+```
+git clone git@github.com:umg/data-science-summit-airflow.git
+```
+
+If you have issues with cloning the repository, please refer to GitHub documentation on how to set up access when 2FA is enabled.
+https://help.github.com/articles/providing-your-2fa-authentication-code/
+
 2. Update `airflow-1.8.1.yml` file with your GCP project.
 ```
 PROJECT_NAME=<your project>
@@ -135,8 +143,11 @@ You will have to update it in 3 places, under `webserver`, `scheduler` and `work
 
 3. Copy `airflow-1.8.1.yml` file into your home directory on the remote instance
 ```
-$ scp -i ~/<your private ssh key> airflow-1.8.1.yml <your username>@<server ip>:/home/<your username>
+$ scp -i ~/.ssh/<your private ssh key> airflow-1.8.1.yml <your username>@<server ip>:/home/<your username>
 ```
+
+> Note: if you don't have SSH private key in `~/.ssh` directory, please refer to Google Cloud documentation on how to create the SSH keys.
+https://cloud.google.com/compute/docs/instances/adding-removing-ssh-keys
 
 ### Step 5. Create `airflow` user
 
@@ -154,7 +165,7 @@ Retype new UNIX password: airflow
 passwd: password updated successfully
 ```
 
-Note: password is not going to be visible when you type. 
+> Note: password is not going to be visible when you type. 
 
 3. Provide `sudo` rigths to `airflow` user
 ```
@@ -220,9 +231,11 @@ Compute Engine default service account              874919087886-compute@develop
 svc-swift-alerts@umg-swift.iam.gserviceaccount.com  svc-swift-alerts@umg-swift.iam.gserviceaccount.com
 svc-swift-api                                       svc-swift-api@umg-swift.iam.gserviceaccount.com
 ```
-Note: this is just an example. Your project will have different accounts
+> Note: this is just an example. Your project will have different accounts
 
-4. Create a key for Compute Engine default service account. Note: you should name the key file as `<your project name>-key.json` 
+4. Create a key for Compute Engine default service account. 
+
+> Note: you should name the key file as `<your project name>-key.json` 
 ```
 $ gcloud iam service-accounts keys create <your project>-key.json --iam-account=<Compute Engine default service account email>
 ```
@@ -230,7 +243,7 @@ $ gcloud iam service-accounts keys create <your project>-key.json --iam-account=
 
 5. Copy the key file to the Airflow instance
 ```
-$ scp -i ~/<your private ssh key> <your project name>-key.json <your username>@<server ip>:/home/<your username>
+$ scp -i ~/.ssh/<your private ssh key> <your project name>-key.json <your username>@<server ip>:/home/<your username>
 ```
 
 6. From SSH session on your instance copy the key file into `/opt/app` directory, so it can be picked up by Docker containers
@@ -250,7 +263,7 @@ $ sudo chmod 644 /opt/app/<your project name>-key.json
 $ gsutil mb gs://<your project name>
 ```
 
-Note: if the bucket already exists you will receive an error about that and that's ok. 
+> Note: if the bucket already exists you will receive an error about that and that's ok. 
 
 ### Step 10. Create BigQuery dataset
 1. Open BigQuery UI in your project and create a new empty dataset. Call it `airflow_training_<your name>`
@@ -281,11 +294,11 @@ Note: if the bucket already exists you will receive an error about that and that
 
 1. Copy `plugins/bq_hook.py`, `plugins/bq_plugin.py` and `dags/lab1.py` files into your home directory on the remote instance
 ```
-$ scp -i ~/<your private ssh key> plugins/bq_hook.py <your username>@<server ip>:/home/<your username>
+$ scp -i ~/.ssh/<your private ssh key> plugins/bq_hook.py <your username>@<server ip>:/home/<your username>
 
-$ scp -i ~/<your private ssh key> plugins/bq_plugin.py <your username>@<server ip>:/home/<your username>
+$ scp -i ~/.ssh/<your private ssh key> plugins/bq_plugin.py <your username>@<server ip>:/home/<your username>
 
-$ scp -i ~/<your private ssh key> dags/lab1.py <your username>@<server ip>:/home/<your username>
+$ scp -i ~/.ssh/<your private ssh key> dags/lab1.py <your username>@<server ip>:/home/<your username>
 ```
 
 2. From your SSH session copy the files from your home directory to Docker container volume folders
