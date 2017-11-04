@@ -38,4 +38,5 @@ If you are using your own GCP project, the TCP ports 8080 and 5555 should be all
 The following lab exercises are available as part of the training:
 
 1. [Launching Airflow Server on Google Cloud](dags/lab1)
+2. [Using BashOperator and WGET to download files](dags/lab2)
 

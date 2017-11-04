@@ -161,6 +161,13 @@ $ sudo mkdir /opt/airflow/dags
 $ sudo mkdir /opt/airflow/plugins
 ```
 
+Change permissions to the created folders:
+
+```
+$ sudo chmod 777 /opt/airflow/dags
+$ sudo chmod 777 /opt/airflow/plugins
+```
+
 3. Launch the Airflow container with Docker Compose
 ```
 $ sudo docker-compose -f airflow-1.8.1.yml up -d
