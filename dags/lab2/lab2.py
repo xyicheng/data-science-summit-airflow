@@ -25,9 +25,20 @@ dag = DAG('lab2',
           schedule_interval = None,
           default_args = default_args)
 
+""" 
+# Step 1.
 download_file = BashOperator(
   task_id = 'dowload_file',
   bash_command = 'wget https://github.com/umg/data-science-summit-airflow/blob/master/data/shazam/shazam_AR_20171029.txt -O /tmp/shazam_AR_20171029.txt',
+  dag = dag
+)
+"""
+
+# Step 2
+download_file = BashOperator(
+  task_id = 'dowload_file',
+  bash_command = 'wget $URL/shazam_AR_20171029.txt -O /tmp/shazam_AR_20171029.txt',
+  env = {'URL': '{{ var.value.shazam_files_url }}'},
   dag = dag
 )
 

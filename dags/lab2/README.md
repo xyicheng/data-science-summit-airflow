@@ -97,6 +97,40 @@ $ ls /tmp
 $ exit
 ```
 
+### Step 2. Passing download URL as a parameter from a global variable
+
+1. From Airflow Web UI, to to `Admin -> Variables`
+
+2. Create a variable `shazam_files_url` and assing the value of `https://github.com/umg/data-science-summit-airflow/blob/master/data/shazam`
+
+3. Make the following change in your DAG:
+
+```
+download_file = BashOperator(
+  task_id = 'dowload_file',
+  bash_command = 'wget $URL/shazam_AR_20171029.txt -O /tmp/shazam_AR_20171029.txt',
+  env={'URL': '{{ var.value.shazam_files_url }}'},
+  dag = dag
+)
+```
+
+4. Stop for a moment and reflect on what we just have done. There are multiple very important concepts at play here:
+
+* We created a global variable `shazam_file_url`
+* We used _templated parameter_ `env` of `BashOperator` to create an _environment variable_ `URL` and assigned  it's value from the _template notation_ `{{ var.value.<name of the variable> }}`
+* We passed value of the environment variable `URL` into our Bash shell command using regular UNIX notation for environment variables as `$<environment variable name>`
+
+5. SCP the changed DAG to the `/opt/airflow/dags` folder on the server. From DAG view in Web UI go to `Code` to make sure your changes have been picked up by Docker. 
+
+6. Run the DAG and check the task log to make sure it's still executing properly.
+
+> Note: There are two ways you can check the execution of the DAG: 
+> 1. Click `Run` from Web UI home page to create a new execution of the DAG
+> 2. Click on `download_file` task of the existing execution and click `Clear`. Then refresh UI a few times to see how the task is being executed again. 
+
+> The second approach is preferrable so the Tree View in DAG UI doesn't get cluttered with too many DAG executions. 
+
+
 
 
 
