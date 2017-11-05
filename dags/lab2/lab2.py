@@ -44,12 +44,24 @@ download_file = BashOperator(
 )
 """
 
+"""
 # Step 3
 download_file = BashOperator(
   task_id = 'dowload_file',
   bash_command = 'wget $URL/shazam_AR_20171029.txt -O /tmp/shazam_AR_20171029.txt; echo $?' ,
   env = {'URL': '{{ var.value.shazam_files_url }}'},
   xcom_push = True,
+  dag = dag
+)
+"""
+
+# Step 4
+download_file = BashOperator(
+  task_id = 'dowload_file',
+  bash_command = 'wget $URL/shazam_AR_$EXEC_DATE.txt -O /tmp/shazam_AR_$EXEC_DATE.txt; echo $?',
+  env={'URL': '{{ var.value.shazam_files_url }}',
+    'EXEC_DATE': '{{ ds_nodash }}'},
+  xcom_push = True, 
   dag = dag
 )
 

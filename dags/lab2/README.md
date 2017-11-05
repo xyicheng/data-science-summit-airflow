@@ -4,8 +4,9 @@ After completion of this lab you will be able to do the following:
 
 * Use BashOperator to run UNIX shell commands from within Airflow
 * Configure global variables to pass environment context to the BashOperator
-* Pass execution date to BashOperator for downloading file for current date
 * Return value from BashOperator as an XCom variable
+* Pass execution date to BashOperator for downloading file for current date
+* Do a DAG backfill on a particular execution date
 * Create DAG dynamically by looping through list of files that need to be downloaded and creating a task for each file
 * Getting inside docker container to check for downloaded files
 
@@ -132,7 +133,7 @@ download_file = BashOperator(
 
 7. Click on `download_file` task box and go to `Rendered`. Check the value of rendered template.
 
-### Step 3. Returning Bash command output as XCom variable
+### Step 3. Returning Bash command output as an XCom variable
 
 1. Modify the `download_file` task to add the `xcom_push = True` parameter:
 
@@ -151,6 +152,7 @@ download_file = BashOperator(
 * We added `echo $?` command at the end of `bash_command` parameter, to return WGET's exit code. This code later can be parsed by a downstream task. 
 
 >Note: The WGET exit codes for your reference:
+
 >0. No problems occurred
 >1. Generic error code
 >2. Parse error — for instance, when parsing command-line options, the .wgetrc or .netrc…
@@ -161,7 +163,83 @@ download_file = BashOperator(
 >7. Protocol errors
 >8. Server issued an error response
 
-3. Click on `download_file` task box in Tree View and go to `View Log -> XCom`. Check that return value is `0`. 
+3. SCP the changed DAG to the server
+
+4. Clear the `download_file` task and refresh UI for the task to be executed again. 
+
+5. Click on `download_file` task box in Tree View and go to `View Log -> XCom`. Check that return value is `0`. 
+
+
+### Step 4. Passing execution date to dynamically generate the name of the file
+
+1. Modify the `download_file` task to the following:
+
+```
+download_file = BashOperator(
+  task_id = 'dowload_file',
+  bash_command = 'wget $URL/shazam_AR_$EXEC_DATE.txt -O /tmp/shazam_AR_$EXEC_DATE.txt; echo $?',
+  env={'URL': '{{ var.value.shazam_files_url }}',
+    'EXEC_DATE': '{{ ds_nodash }}'},
+  xcom_push = True, 
+  dag = dag
+)
+```
+
+2. Reflect on the change we have just made:
+
+* We added another environment variable `EXEC_DATE` to the templated parameter `env`.
+* We passed the value of _default variable_ `ds_nodash` via template notation `{{ default variable }}` to the environment variable `EXEC_DATE`, which represents the execution date of the DAG in `YYYYMMDD` format.
+* We used `$<variable name>` UNIX notation to obtain the value of the _environment variable_ to the Bash command at the run time. 
+
+> Note: the full list of _default variables_ can be obtained [here](https://airflow.apache.org/code.html#default-variables)
+
+3. SCP the changed DAG to the server
+
+4. Since our files are from `20171029`, we need to execute our DAG on that date so the files get downloaded successfully. For this we need to do `backfill` command in Airflow server.
+
+5. From SSH session on Airflow server do the following:
+
+```
+$ sudo docker ps | grep worker
+```
+It should return an output similar to this:
+```
+337c390e2863        sstumgdocker/docker-airflow-mongotools   "/entrypoint.sh wo..."   7 days ago          Up 6 days           5555/tcp, 8080/tcp, 8793/tcp                 airflow_worker_1
+```
+The first value is a container id of the worker
+
+6. On the Airflow server, launch the following command to get inside the worker's Docker container
+```
+$ sudo docker exec -it <container id> bash
+```
+
+7. Launch the following command inside the worker's Docker container:
+
+```
+$ airflow backfill 'lab2' -s '2017-10-29' -e '2017-10-29'
+```
+
+>Note: the parameters of the `backfill` command are:
+
+```
+$ airflow backfill '<dag_id>' -s '<start date>' -e '<end date>'
+```
+
+> Backfill can be done for multiple dates at once, but we need it just for one day, so the `start date` and `end date` parameters are equal. 
+
+8. Go back to Tree View in the UI and notice a new DAG execution being added. Refresh UI a few times until DAG execution completes. 
+
+9. Click on `download_file` task box and go to `Rendered`. Check that all the templated values got rendered correctly. It should look like this:
+```
+{'URL': u'https://github.com/umg/data-science-summit-airflow/blob/master/data/shazam', 'EXEC_DATE': u'20171029'}
+```
+
+>Note: Now if you will try to restart the DAG executions that we did previously which don't fall on 2017-10-29, they will not fail, despite there are no files under the URL that match their execution dates. But the WGET exit code will be `8 - Server issued an error response`. You can try to restart these DAG executions, click on the `download_file` task box and go to `View Log -> XCom` to verify this. 
+
+### Step 5. Generating DAG dynamically for downloading multiple files
+
+1. 
+
 
 
 
