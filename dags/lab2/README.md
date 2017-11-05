@@ -58,7 +58,7 @@ from airflow.operators.bash_operator import BashOperator
 
 ```
 download_file = BashOperator(
-  task_id = 'dowload_file',
+  task_id = 'download_file',
   bash_command = 'wget https://github.com/umg/data-science-summit-airflow/blob/master/data/shazam/shazam_AR_20171029.txt -O /tmp/shazam_AR_20171029.txt',
   dag = dag
 )
@@ -108,7 +108,7 @@ $ exit
 
 ```
 download_file = BashOperator(
-  task_id = 'dowload_file',
+  task_id = 'download_file',
   bash_command = 'wget $URL/shazam_AR_20171029.txt -O /tmp/shazam_AR_20171029.txt',
   env={'URL': '{{ var.value.shazam_files_url }}'},
   dag = dag
@@ -139,7 +139,7 @@ download_file = BashOperator(
 
 ```
 download_file = BashOperator(
-  task_id = 'dowload_file',
+  task_id = 'download_file',
   bash_command = 'wget $URL/shazam_AR_20171029.txt -O /tmp/shazam_AR_20171029.txt; echo $?',
   env={'URL': '{{ var.value.shazam_files_url }}'},
   xcom_push = True, 
@@ -176,7 +176,7 @@ download_file = BashOperator(
 
 ```
 download_file = BashOperator(
-  task_id = 'dowload_file',
+  task_id = 'download_file',
   bash_command = 'wget $URL/shazam_AR_$EXEC_DATE.txt -O /tmp/shazam_AR_$EXEC_DATE.txt; echo $?',
   env={'URL': '{{ var.value.shazam_files_url }}',
     'EXEC_DATE': '{{ ds_nodash }}'},
@@ -238,8 +238,54 @@ $ airflow backfill '<dag_id>' -s '<start date>' -e '<end date>'
 
 ### Step 5. Generating DAG dynamically for downloading multiple files
 
-1. 
+1. Go to `Admin -> Variables` in Web UI and create a global variable with name `shazam_country_list` and value of `AR,US,CA`. Don't add any spaces between commas.
 
+2. Add the following line in the import statements in DAG code:
+```
+from airflow.models import Variable
+```
 
+3. Modify the DAG code as the following:
+
+```
+shazam_country_list = Variable.get('shazam_country_list').split(',')
+
+for country in shazam_country_list:
+  download_file = BashOperator(
+  task_id = 'download_file_{}'.format(
+    country
+  ),
+  bash_command = 'wget $URL/shazam_{}_$EXEC_DATE.txt -O /tmp/shazam_{}_$EXEC_DATE.txt; echo $?'.format(
+    country, 
+    country
+  ),
+  env={'URL': '{{ var.value.shazam_files_url }}',
+    'EXEC_DATE': '{{ ds_nodash }}'},
+  xcom_push = True, 
+  dag = dag
+)
+
+```
+
+4. Reflect on the changes we just have made:
+
+* We used `Variable.get` method to obtain the CSV value of the `shazam_country_list` global variable and created a Python list from it by using `split` method. 
+* We added a loop on this country list so the `download_file` task gets repeated as many times as there are values in the list. 
+* We added postfix of country code value for the `task_id` parameter of the `download_file` task. This is very important so every task gets it's own unique id. 
+* We added the country code to the source and destination file names in WGET command. We used `format` method in Python to substitute `{}` placeholders with values of country codes. 
+
+5. SCP the changed DAG to the server.
+
+6. Refresh Tree View in UI a few times until you see three tasks in the DAG and not one. They should be named as `download_file_AR`, `download_file_US` and `download_file_CA`. 
+
+7. Go inside worker's Docker container and do backfill for the DAG. (See Step 4. 4-7) on `20171029`.
+
+8. Refresh Tree View in UI a few times so all three tasks get executed. 
+
+9. Do `$ ls /tmp` inside the worker's Docker container to make sure that all three files got downloaded successfully.
+
+10. You may also check logs and rendered templates. 
+
+>Note: This is a very powerfull technique in Airflow that puts it above competitors. Once one pipeline gets created, it may be repeated for multiple files or inputs dynamically, and be treated as it's own unique branch in DAG with perfect visibility of it's execution. 
 
 
