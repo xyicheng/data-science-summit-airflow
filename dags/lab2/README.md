@@ -20,6 +20,7 @@ This lab will be done progressively from most simple BashOperator functionality,
 from __future__ import print_function
 import airflow
 import pytz
+import logging
 from datetime import datetime, timedelta
 from airflow import DAG
 
