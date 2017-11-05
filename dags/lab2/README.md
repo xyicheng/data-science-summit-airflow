@@ -130,8 +130,38 @@ download_file = BashOperator(
 
 > The second approach is preferrable so the Tree View in DAG UI doesn't get cluttered with too many DAG executions. 
 
+7. Click on `download_file` task box and go to `Rendered`. Check the value of rendered template.
 
+### Step 3. Returning Bash command output as XCom variable
 
+1. Modify the `download_file` task to add the `xcom_push = True` parameter:
+
+```
+download_file = BashOperator(
+  task_id = 'dowload_file',
+  bash_command = 'wget $URL/shazam_AR_20171029.txt -O /tmp/shazam_AR_20171029.txt; echo $?',
+  env={'URL': '{{ var.value.shazam_files_url }}'},
+  xcom_push = True, 
+  dag = dag
+)
+```
+
+2. Reflect on the modifications we have just done:
+* We added `xcom_push` parameter to return output from the BashOperator command as an XCom variable.
+* We added `echo $?` command at the end of `bash_command` parameter, to return WGET's exit code. This code later can be parsed by a downstream task. 
+
+>Note: The WGET exit codes for your reference:
+>0. No problems occurred
+>1. Generic error code
+>2. Parse error — for instance, when parsing command-line options, the .wgetrc or .netrc…
+>3. File I/O error
+>4. Network failure
+>5. SSL verification failure
+>6. Username/password authentication failure
+>7. Protocol errors
+>8. Server issued an error response
+
+3. Click on `download_file` task box in Tree View and go to `View Log -> XCom`. Check that return value is `0`. 
 
 
 
