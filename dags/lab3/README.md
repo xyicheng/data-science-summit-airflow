@@ -86,7 +86,7 @@ def verifyWgetReturnCode(*args, **kwargs):
 9. Reflect on the logic of our Python function, especially on how we use `kwargs` to exchange information between task instances and the Python function. 
 
 Here are a few points to pay attention to:
-* The only way to pass a parameter from PythonOperator or ShortCircuitOperator to the Python callable function is via `op_kwargs` . As much as it is tempting to do something like `python_callable = verifyWgetReturnCode("{}").format(country)` this will not work. 
+* The only way to pass a parameter from PythonOperator or ShortCircuitOperator to the Python callable function is via `op_kwargs` . As much as it is tempting to do something like `python_callable = verifyWgetReturnCode(country)` this will not work. 
 * To pull XCom variable value from the previous (ustream) task, you need to instantiate an instane of _current_ task. This current task instance comes from `ti` _default variable_, which becomes available in `kwargs`, only if parameter `provide_context` is set to `True`. 
 
 10. Set dependency between `download_file` and `verify_download` tasks using Python bitshift operator. This should be set inside the country list loop after the both tasks are declared:
@@ -120,6 +120,68 @@ If everything is correct, the output should look similar to this:
 >Note: if you clear the previously ran `download_file` tasks they will run again after you do backfill. But if you leave them completed, then the backfill will just run the newly added tasks. This is convenient for progressive development. 
 
 >Note: This sequence of doing `airflow test` first to debug your code and then run `airflow backfill` to execute the just developed tasks and fill the Airflow database with state, is very common in the Airflow development cycle. 
+
+13. Check the success of DAG execution, explore task logs etc. 
+
+### Step 2. Data transformations with Pandas 
+
+1. Add import statement for Pandas package to the DAG file:
+```
+import pandas as pd
+```
+
+2. Add new `transform` PythonOperator task in the DAG file:
+
+```
+transform = PythonOperator(
+    task_id = 'transform_data_{}'.format(
+      country
+    ),
+    python_callable = transformData,
+    provide_context = True,
+    op_kwargs = [('country', country)],
+    dag=dag
+  )
+```
+
+The settings are very similar to the ShortCircuitOperator task we did before. This task will be calling `transformData` Python function.
+
+3. Create `transformData` Python function that uses Pandas dataframes to transform content of the file to a format that can be easily imported by BigQuery:
+
+```
+def transformData(country, ds_nodash, *args, **kwargs):
+  logging.info('Transforming data file')
+  logging.info('Country: %s', country)
+  logging.info('Date: %s', ds_nodash)
+
+  # read file into a dataframe
+  df = pd.read_csv('/tmp/shazam_{}_{}.txt'.format(
+    country,
+    ds_nodash
+  ), sep='\t',  error_bad_lines=False)
+  logging.info('Dimensions: %s', df.shape)
+
+  #rename columns, according to the schema
+  df.columns = ['row_num', 'country', 'partner_report_date', 'track', 'artist', 'isrcs']
+
+  #add `load_datetime` column with current timestamp
+  df['load_datetime'] = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+
+  #change `partner_report_date` column to YYYY-MM-DD format
+  df['partner_report_date'] = df['partner_report_date'].apply(
+    lambda d: datetime.strptime(str(d), '%Y%m%d')
+                      .strftime('%Y-%m-%d')
+    )
+
+  #write to a combined file
+  with open('/tmp/shazam_combined_{}.txt'.format(ds_nodash), 'a') as f:
+    df.to_csv(f, header=False, sep='\t')
+
+```
+
+>Note: Please note the other way custom parameters and default variables can be passed from the context into a Python function. In `verifyWgetReturnCode` function, we obtained value of the `country` parameter from `kwargs`, but here we passed `country` and `ds_nodash` explicitely as arguments of the Python function. `country` is a custom parameter that we pass via `op_kwargs` parameter, but `ds_nodash` is a default variable so it doesn't need to be explicitely stated in the operator, because it gets passed with the context. Any default variables can be passed in this fashion as long as  `provide_context` is set to `True`.
+
+4. SCP changed file and backfill the DAG on `2019-10-29`
 
 
 

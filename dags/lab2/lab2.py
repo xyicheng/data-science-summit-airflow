@@ -31,7 +31,7 @@ dag = DAG('lab2',
 # Step 1.
 download_file = BashOperator(
   task_id = 'download_file',
-  bash_command = 'wget https://github.com/umg/data-science-summit-airflow/blob/master/data/shazam/shazam_AR_20171029.txt -O /tmp/shazam_AR_20171029.txt',
+  bash_command = 'wget https://raw.githubusercontent.com/umg/data-science-summit-airflow/master/data/shazam/shazam_AR_20171029.txt -O /tmp/shazam_AR_20171029.txt',
   dag = dag
 )
 """

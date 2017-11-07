@@ -60,7 +60,7 @@ from airflow.operators.bash_operator import BashOperator
 ```
 download_file = BashOperator(
   task_id = 'download_file',
-  bash_command = 'wget https://github.com/umg/data-science-summit-airflow/blob/master/data/shazam/shazam_AR_20171029.txt -O /tmp/shazam_AR_20171029.txt',
+  bash_command = 'wget https://raw.githubusercontent.com/umg/data-science-summit-airflow/master/data/shazam/shazam_AR_20171029.txt -O /tmp/shazam_AR_20171029.txt',
   dag = dag
 )
 ```
@@ -103,7 +103,7 @@ $ exit
 
 1. From Airflow Web UI, to to `Admin -> Variables`
 
-2. Create a variable `shazam_files_url` and assing the value of `https://github.com/umg/data-science-summit-airflow/blob/master/data/shazam`
+2. Create a variable `shazam_files_url` and assing the value of `https://raw.githubusercontent.com/umg/data-science-summit-airflow/master/data/shazam/`
 
 3. Make the following change in your DAG:
 

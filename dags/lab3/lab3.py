@@ -2,6 +2,7 @@ from __future__ import print_function
 import airflow
 import pytz
 import logging
+import pandas as pd
 from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.operators.bash_operator import BashOperator
@@ -34,6 +35,34 @@ def verifyWgetReturnCode(*args, **kwargs):
         return True
     else:
         return False
+
+def transformData(country, ds_nodash, *args, **kwargs):
+  logging.info('Transforming data file')
+  logging.info('Country: %s', country)
+  logging.info('Date: %s', ds_nodash)
+
+  # read file into a dataframe
+  df = pd.read_csv('/tmp/shazam_{}_{}.txt'.format(
+    country,
+    ds_nodash
+  ), sep='\t',  error_bad_lines=False)
+  logging.info('Dimensions: %s', df.shape)
+
+  #rename columns, according to the schema
+  df.columns = ['row_num', 'country', 'partner_report_date', 'track', 'artist', 'isrcs']
+
+  #add `load_datetime` column with current timestamp
+  df['load_datetime'] = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+
+  #change `partner_report_date` column to YYYY-MM-DD format
+  df['partner_report_date'] = df['partner_report_date'].apply(
+    lambda d: datetime.strptime(str(d), '%Y%m%d')
+                      .strftime('%Y-%m-%d')
+    )
+
+  #write to a combined file
+  with open('/tmp/shazam_combined_{}.txt'.format(ds_nodash), 'a') as f:
+    df.to_csv(f, header=False, sep='\t')
 
 start_date = datetime(2017, 10, 24, 0, 0, 0, tzinfo=pytz.utc)
 
@@ -83,7 +112,20 @@ for country in shazam_country_list:
     dag=dag
   )
 
-  download_file >> verify_download
+  transform = PythonOperator(
+    task_id = 'transform_data_{}'.format(
+      country
+    ),
+    python_callable = transformData,
+    provide_context = True,
+    op_kwargs = [('country', country)],
+    dag=dag
+  )
+
+
+
+
+  download_file >> verify_download >> transform
 
 
 
