@@ -183,6 +183,8 @@ def transformData(country, ds_nodash, *args, **kwargs):
 
 4. SCP changed file and backfill the DAG on `2019-10-29`
 
+5. Check /tmp/shazam_combined_20171029.txt file to be properly transformed and having records from all 3 files
+
 
 
 
