@@ -185,6 +185,64 @@ def transformData(country, ds_nodash, *args, **kwargs):
 
 5. Check /tmp/shazam_combined_20171029.txt file to be properly transformed and having records from all 3 files
 
+### Step 3. Using `FileToGoogleCloudStorageOperator`to copy the generated combined file to GCS
+
+In this step we are going to try using community-contributed `FileToGoogleCloudStorageOperator` to move combined daily Shazam file to GCS before to facilitate import to BigQuery. 
+
+1. Create a bucket and folders on GCS in your project to place the combined Shazam file, for example: `gs://<your project name>/airflow-training/shazam`
+
+2. Create a global variable in Web UI `Admin -> Variables` with the name `shazam_gcs_path` and value of your bucket
+
+3. Add an import statement to the top of the DAG file:
+```
+from airflow.contrib.operators import file_to_gcs
+```
+
+4. Add `upload_to_gcs` task to your DAG, before the country loop
+
+```
+ upload_to_gcs = file_to_gcs.FileToGoogleCloudStorageOperator(
+    task_id = 'upload_to_gcs',
+    dst = 'shazam_combined_{{ ds_nodash }}.txt',
+    bucket = '{{ var.value.shazam_gcs_path }}',
+    conn_id = 'google_cloud_default',
+    src = '/tmp/shazam_combined_{{ ds_nodash }}.txt',
+    dag = dag
+)
+```
+
+> Note: the reason we are placing this task in front of the country list loop, is because we want to connect all the specific country branches into a single `upload_to_gcs` task. 
+
+5. In the Web UI, go to `Admin -> Connections` and create a `google_cloud_storage_default` connection with following properties:
+* `Conn Id`: `google_cloud_storage_default`
+* `Conn Type`: `Google Cloud Default`
+* `Project Id`: `<your project name>`
+
+6. Add dependency to `upload_to_gcs` task within the country list loop:
+
+```
+  download_file >> verify_download >> transform >> upload_to_gcs
+```
+7. Run the `upload_to_gcs` task from Web UI and observe it fail. If everything has been done correctly up to this point, the failure would be due to this error:
+
+```
+IOError: [Errno 2] No such file or directory: '/tmp/shazam_combined_{{ ds_nodash }}.txt'
+```
+
+>Note: this has been set on purpose, to demonstrate the common frustration of dealing with community-contributed operators. The reason for this error is that `src` parameter of the `FileToGoogleCloudStorageOperator` is not templated. So how do we pass execution date to generate the name of the file dynamically? 
+
+>There are couple of ways you can go from there:
+
+>a) Keep trying to find a workaround with existing contributed operator (might take days, if not weeks)
+
+>b) Fork the operator repository, and modify it to make it work. Do a pull request to contribute it back to the community
+
+>c) Create a custom plugin and "steal" most of the contrib operator's code and maintain it within your own repo
+
+>We will focus on the option c) in the next step
+
+
+
 
 
 

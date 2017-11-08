@@ -8,6 +8,7 @@ from airflow import DAG
 from airflow.operators.bash_operator import BashOperator
 from airflow.models import Variable
 from airflow.operators.python_operator import PythonOperator, ShortCircuitOperator
+from airflow.contrib.operators import file_to_gcs
 
 def verifyWgetReturnCode(*args, **kwargs):
 
@@ -87,6 +88,17 @@ dag = DAG('lab3',
 
 shazam_country_list = Variable.get('shazam_country_list').split(',')
 
+upload_to_gcs = file_to_gcs.FileToGoogleCloudStorageOperator(
+    task_id = 'upload_to_gcs',
+    dst = 'shazam_combined_{{ ds_nodash }}.txt',
+    bucket = '{{ var.value.shazam_gcs_path }}',
+    conn_id = 'google_cloud_default',
+    src = '/tmp/shazam_combined_{}.txt'.format(
+      '{{ ds_nodash }}'
+    ),
+    dag = dag
+)
+
 for country in shazam_country_list:
   download_file = BashOperator(
     task_id = 'download_file_{}'.format(
@@ -123,9 +135,7 @@ for country in shazam_country_list:
   )
 
 
-
-
-  download_file >> verify_download >> transform
+  download_file >> verify_download >> transform >> upload_to_gcs
 
 
 
