@@ -297,6 +297,14 @@ sudo docker-compose -f airflow-1.8.1.yml restart
 
 13. Check your GCS bucket for the uploaded file
 
+### Step 5. Testing the `ShortCircuitOperator`
 
+1. Go to `Admin -> Variables` and add a new country to the list in the `shazam_country_list` variable, so it looks like this: `AR,US,CA,DE`
+
+2. Go back to the DAG in the Web UI and refresh browser to see new branch added for the new country.
+
+3. Backfill the DAG on `2017-10-29`
+
+4. Observe the `transform_date_DE` task to be in a skipped state
 
 
