@@ -1,4 +1,4 @@
-# Lab 3. Using PythonOperator to validate file downloads, cleanse the data, merge into a consolidated file and upload it to GCS.
+# Lab 3. Using PythonOperator and community contributed operators to validate file downloads, cleanse the data, merge into a consolidated file, upload it to GCS and import to BigQuery
 
 >Note: this is a continuation of the DAG we started to create in Lab 2. 
 
@@ -12,6 +12,7 @@ After completion of this lab you will be able to do the following:
 * Test your custom Python functions from within Airflow
 * Use `FileToGoogleCloudStorageOperator` to upload file to GCS
 * "Hack" community contributed operators to make them work for your use cases
+* Use 
 
 ### Step 1. Validate WGET return codes
 
@@ -306,5 +307,219 @@ sudo docker-compose -f airflow-1.8.1.yml restart
 3. Backfill the DAG on `2017-10-29`
 
 4. Observe the `transform_date_DE` task to be in a skipped state
+
+### Step 6. Using  `GoogleCloudStorageToBigQueryOperator` to ingest the combined Shazam file to BigQuery
+
+1. From the terminal create a new partitioned table in BigQuery to store Shazam data
+```
+bq mk --time_partitioning_type=DAY '<your project name>:airflow_training_<your name>.shazam'
+```
+
+2. From AirFlow Web UI to to `Admin -> Variables` and create a new global variable `shazam_bq_table` pointing to the table you created
+
+
+
+3. Add import statement to your DAG file for `GoogleCloudStorageToBigQueryOperator`
+
+```
+from airflow.contrib.operators.gcs_to_bq import GoogleCloudStorageToBigQueryOperator
+
+```
+
+4. Add `ingest_to_bq` task in your DAG between the `upload_to_gcs` and the country list loop
+
+```
+ingest_to_bq = GoogleCloudStorageToBigQueryOperator(
+    task_id = 'ingest_to_bq',
+    bucket = '{{ var.value.project_bucket }}',
+    source_objects=['airflow-training/shazam/shazam_combined_{{ ds_nodash }}.txt'],
+    destination_project_dataset_table='{{ var.value.shazam_bq_table }}${{ ds_nodash }}',
+    source_format='CSV',
+    field_delimiter='\t',
+    schema_fields=['row_num', 'country', 'partner_report_date', 'track', 'artist', 'isrcs'],
+    create_disposition='CREATE_IF_NEEDED',
+    write_disposition='WRITE_TRUNCATE',
+    google_cloud_storage_conn_id='google_cloud_storage_default',
+    bigquery_conn_id='bigquery_default'
+)
+```
+
+5. Add connection from `upload_to_gcs`  to `ingest_to_bq` task inside the country list loop:
+
+```
+download_file >> verify_download >> transform >> upload_to_gcs >> ingest_to_bq
+``` 
+
+6. SCP DAG to the server, refresh UI and observe it failing on message `Broken DAG: [/usr/local/airflow/dags/lab3.py] cannot import name GbqConnector`
+
+>Note: This is a typical issue that can happen with contributed operators when dependency package is being updated. This is the bug that has been fixed in version 1.8.2, but for this lab we are running 1.8.1 so we can upgrade the Airflow to fix it, but it's good to demonstrate as a real problem that you may encounter during your development and the options of what to do about it.
+
+> This is the link to the issue in Airflow JIRA https://issues.apache.org/jira/browse/AIRFLOW-1179
+
+
+### Step 7. Writing our own version of GoogleCloudStorageToBigQueryOperator 
+
+For this step we are going to be using Python BigQuery library from [https://github.com/tylertreat/BigQuery-Python](https://github.com/tylertreat/BigQuery-Python)
+
+The BigQuery hook partially has been implemented in the `plugins/bq_hook.py` file that you copied in Lab 1 but it doesn't have ingesting to BigQuery functionality yet. We will test and implement it now. 
+
+1. Open the [https://github.com/tylertreat/BigQuery-Python#import-data-from-google-cloud-storage](https://github.com/tylertreat/BigQuery-Python#import-data-from-google-cloud-storage) and check the example of the code
+
+2. Study the available parameters  in the [https://github.com/tylertreat/BigQuery-Python/blob/master/bigquery/client.py#L817] (https://github.com/tylertreat/BigQuery-Python/blob/master/bigquery/client.py#L817)
+
+3. In the `bq_hook.py` add the following code:
+
+```
+def import_from_gcs(self, 
+                  gcs_uris,
+                  dataset,
+                  table,
+                  schema,
+                  source_format,
+                  field_delimiter,
+                  write_disposition):
+
+  hex = self.client()._generate_hex_for_uris(gcs_uris)
+  
+  job_id = '{dataset}-{table}-{digest}'.format(
+          dataset=dataset,
+          table=table.replace('$', '_'),
+          digest=hex
+      )
+  
+  job = self.client().import_data_from_uris(
+                              job = job_id,
+                              source_uris = gcs_uris,
+                              dataset = dataset,
+                              table = table,
+                              schema = schema,
+                              source_format = source_format,
+                              field_delimiter = field_delimiter,
+                              write_disposition = write_disposition)
+
+  try:
+      job_resource = self.client().wait_for_job(job, timeout=60)
+      logging.info('Import job: %s', job_resource)
+  except BigQueryTimeoutException:
+      logging.info('Timeout occured while importing %s to %s.%s',
+          gcs_uris,
+          dataset,
+          table)
+```
+
+4. In the `bq_plugin.py` add the following code:
+
+```
+class GcsToBqOperator(BaseOperator):
+
+    ui_color = '#88F8FF'
+    template_fields = ('gcs_uris',
+        'destination_table')
+
+    @apply_defaults
+    def __init__(
+        self,
+        gcs_uris,
+        destination_table,
+        schema,
+        source_format = 'CSV',
+        field_delimiter = ',',
+        bigquery_conn_id = 'bigquery_default',
+        write_disposition = 'WRITE_TRUNCATE',
+        *args, **kwargs):
+
+        self.gcs_uris = gcs_uris
+        self.destination_table = destination_table
+        self.schema = schema
+        self.source_format = source_format
+        self.field_delimiter = field_delimiter
+        self.bigquery_conn_id = bigquery_conn_id
+        self.write_disposition = write_disposition
+        super(GcsToBqOperator, self).__init__(*args, **kwargs)
+
+
+    def execute(self, context):
+        logging.info('Importing data from %s to %s',
+                     self.gcs_uris,
+                     self.destination_table)
+
+        #getting dataset name from destination_table
+        dst_table_array = self.destination_table.split('.')
+        table_name = dst_table_array[len(dst_table_array) - 1]
+        dataset_name = dst_table_array[len(dst_table_array) - 2]
+
+        hook = BigQueryHook(bigquery_conn_id=self.bigquery_conn_id)
+
+        hook.import_from_gcs( 
+                        gcs_uris = self.gcs_uris,
+                        dataset = dataset_name,
+                        table = table_name,
+                        schema = self.schema,
+                        source_format = self.source_format,
+                        field_delimiter = self.field_delimiter,
+                        write_disposition = self.write_disposition)
+    
+
+```
+
+5. Add `GcsToBqOperator` operator to list of plugins
+
+```
+class BqPlugin(AirflowPlugin):
+    name = "BigQuery Plugin"
+    operators = [BqWriteToTableOperator,
+                 GcsToBqOperator]
+```
+
+6. Replace import statement for `GcsToBqOperator` in the DAG file
+
+from 
+```
+from airflow.contrib.operators.gcs_to_bq import GoogleCloudStorageToBigQueryOperator
+```
+
+to
+
+```
+from airflow.operators import GcsToBqOperator
+```
+
+Remove previous import statement
+
+7. Change `ingest_to_bq` task in DAG file to have the following definition:
+
+```
+ingest_to_bq = GcsToBqOperator(
+    task_id = 'ingest_to_bq',
+    gcs_uris = ['gs://{{ var.value.project_bucket }}/airflow-training/shazam/shazam_combined_{{ ds_nodash }}.txt'],
+    destination_table = '{{ var.value.shazam_bq_table }}${{ ds_nodash }}',
+    schema = [  {'name': 'row_num', 'type': 'string', 'mode': 'nullable'},
+      {'name': 'id', 'type': 'string', 'mode': 'nullable'},
+      {'name': 'country', 'type': 'string', 'mode': 'nullable'},
+      {'name': 'partner_report_date', 'type': 'date', 'mode': 'nullable'},
+      {'name': 'track', 'type': 'string', 'mode': 'nullable'},
+      {'name': 'artist', 'type': 'string', 'mode': 'nullable'},
+      {'name': 'isrcs', 'type': 'string', 'mode': 'nullable'},
+      {'name': 'load_datetime', 'type': 'timestamp', 'mode': 'nullable'} ],
+    source_format = 'CSV',
+    field_delimiter = '\t',
+    bigquery_conn_id = 'bigquery_default',
+    write_disposition = 'WRITE_TRUNCATE',
+    dag = dag
+)
+```
+
+8. SCP `bq_hook.py` and `bq_plugin` to `/opt/airflow/plugins`
+
+9. SCP DAG file to `/opt/airflow/dags`
+
+10. Restart Airflow Docker containers by running the following command from under `airflow` user on the server instance
+```
+sudo docker-compose -f airflow-1.8.1.yml restart
+```
+
+11. Refresh Web UI and run the `ingest_to_bq` task
+
+12. If succeeded, verify data in BigQuery
 
 

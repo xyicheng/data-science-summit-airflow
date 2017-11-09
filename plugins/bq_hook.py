@@ -127,5 +127,41 @@ class BigQueryHook(GoogleCloudBaseHook, DbApiHook):
                 table,
                 gcs_uri)
 
+    def import_from_gcs(self, 
+                        gcs_uris,
+                        dataset,
+                        table,
+                        schema,
+                        source_format,
+                        field_delimiter,
+                        write_disposition):
+
+        hex = self.client()._generate_hex_for_uris(gcs_uris)
+        
+        job_id = '{dataset}-{table}-{digest}'.format(
+                dataset=dataset,
+                table=table.replace('$', '_'),
+                digest=hex
+            )
+       
+        job = self.client().import_data_from_uris(
+                                    job = job_id,
+                                    source_uris = gcs_uris,
+                                    dataset = dataset,
+                                    table = table,
+                                    schema = schema,
+                                    source_format = source_format,
+                                    field_delimiter = field_delimiter,
+                                    write_disposition = write_disposition)
+
+        try:
+            job_resource = self.client().wait_for_job(job, timeout=60)
+            logging.info('Import job: %s', job_resource)
+        except BigQueryTimeoutException:
+            logging.info('Timeout occured while importing %s to %s.%s',
+                gcs_uris,
+                dataset,
+                table)
+
     def delete_table(self, dataset, table):
         deleted = self.client().delete_table(dataset, table)

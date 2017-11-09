@@ -9,6 +9,7 @@ from airflow.operators.bash_operator import BashOperator
 from airflow.models import Variable
 from airflow.operators.python_operator import PythonOperator, ShortCircuitOperator
 from airflow.operators import FileToGoogleCloudStorageOperator
+from airflow.operators import GcsToBqOperator
 
 def verifyWgetReturnCode(*args, **kwargs):
 
@@ -93,9 +94,29 @@ upload_to_gcs = FileToGoogleCloudStorageOperator(
     dst = 'airflow-training/shazam/shazam_combined_{{ ds_nodash }}.txt',
     bucket = '{{ var.value.project_bucket }}',
     conn_id = 'google_cloud_default',
+    trigger_rule='all_done', 
     src = '/tmp/shazam_combined_{}.txt'.format(
       '{{ ds_nodash }}'
     ),
+    dag = dag
+)
+
+ingest_to_bq = GcsToBqOperator(
+    task_id = 'ingest_to_bq',
+    gcs_uris = ['gs://{{ var.value.project_bucket }}/airflow-training/shazam/shazam_combined_{{ ds_nodash }}.txt'],
+    destination_table = '{{ var.value.shazam_bq_table }}${{ ds_nodash }}',
+    schema = [  {'name': 'row_num', 'type': 'string', 'mode': 'nullable'},
+      {'name': 'id', 'type': 'string', 'mode': 'nullable'},
+      {'name': 'country', 'type': 'string', 'mode': 'nullable'},
+      {'name': 'partner_report_date', 'type': 'date', 'mode': 'nullable'},
+      {'name': 'track', 'type': 'string', 'mode': 'nullable'},
+      {'name': 'artist', 'type': 'string', 'mode': 'nullable'},
+      {'name': 'isrcs', 'type': 'string', 'mode': 'nullable'},
+      {'name': 'load_datetime', 'type': 'timestamp', 'mode': 'nullable'} ],
+    source_format = 'CSV',
+    field_delimiter = '\t',
+    bigquery_conn_id = 'bigquery_default',
+    write_disposition = 'WRITE_TRUNCATE',
     dag = dag
 )
 
@@ -134,10 +155,10 @@ for country in shazam_country_list:
     dag=dag
   )
 
+  
+
 
   download_file >> verify_download >> transform >> upload_to_gcs
 
-
-
-
+upload_to_gcs >> ingest_to_bq
                  
