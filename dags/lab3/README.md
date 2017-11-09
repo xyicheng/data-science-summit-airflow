@@ -8,9 +8,10 @@ After completion of this lab you will be able to do the following:
 * Use ShortCircuitOperator, a variation of the PythonOperator to hault downstream tasks, if some condition is not met in an upstream tasks
 * Pull XCom variable value from the previous task 
 * Understand the _context_ and how to obtain _default variables_ from it
-* Push multiple XCom variables as an output from a single task
 * Set dependencies between tasks
 * Test your custom Python functions from within Airflow
+* Use `FileToGoogleCloudStorageOperator` to upload file to GCS
+* "Hack" community contributed operators to make them work for your use cases
 
 ### Step 1. Validate WGET return codes
 
@@ -189,9 +190,9 @@ def transformData(country, ds_nodash, *args, **kwargs):
 
 In this step we are going to try using community-contributed `FileToGoogleCloudStorageOperator` to move combined daily Shazam file to GCS before to facilitate import to BigQuery. 
 
-1. Create a bucket and folders on GCS in your project to place the combined Shazam file, for example: `gs://<your project name>/airflow-training/shazam`
+1. Create a bucket in GCS in your project, for example: `gs://<your project name>`
 
-2. Create a global variable in Web UI `Admin -> Variables` with the name `shazam_gcs_path` and value of your bucket
+2. Create a global variable in Web UI `Admin -> Variables` with the name `project_bucket` and value `<your project name>`. No `gs://` prefix needed
 
 3. Add an import statement to the top of the DAG file:
 ```
@@ -203,8 +204,8 @@ from airflow.contrib.operators import file_to_gcs
 ```
  upload_to_gcs = file_to_gcs.FileToGoogleCloudStorageOperator(
     task_id = 'upload_to_gcs',
-    dst = 'shazam_combined_{{ ds_nodash }}.txt',
-    bucket = '{{ var.value.shazam_gcs_path }}',
+    dst = 'airflow-training/shazam/shazam_combined_{{ ds_nodash }}.txt',
+    bucket = '{{ var.value.project_bucket }}',
     conn_id = 'google_cloud_default',
     src = '/tmp/shazam_combined_{{ ds_nodash }}.txt',
     dag = dag
@@ -217,6 +218,8 @@ from airflow.contrib.operators import file_to_gcs
 * `Conn Id`: `google_cloud_storage_default`
 * `Conn Type`: `Google Cloud Default`
 * `Project Id`: `<your project name>`
+* `Keyfile Path`: `/opt/app/<your project name>-key.json`
+* `Scopes`: `https://www.googleapis.com/auth/devstorage.read_write`
 
 6. Add dependency to `upload_to_gcs` task within the country list loop:
 
@@ -241,8 +244,58 @@ IOError: [Errno 2] No such file or directory: '/tmp/shazam_combined_{{ ds_nodash
 
 >We will focus on the option c) in the next step
 
+### Step 4. Stealing `FileToGoogleCloudStorageOperator` into your custom plugin and hacking it to make it work
 
+1. Go to log and find location of the `FileToGoogleCloudStorageOperator` file. In our case it should be `/sstumg-incubator-airflow/airflow/contrib/operators/file_to_gcs.py` inside the Docker container. 
 
+2. Copy the file to `/opt/app` directory sould we could grab it from the instance. If you have permissions issues to copy file into `opt/app`, exit the worker's bash into the instance SSH session and do `$ sudo chmod 777 /opt/app` command.
+
+3. Create a new file `gcs_plugin.py` in your dev environment. Copy/paste there the code from `file_to_gcs.py`
+
+4. Add the import statement for `AirflowPlugin`
+
+```
+from airflow.plugins_manager import AirflowPlugin
+```
+
+5. Add the `GcsPlugin` class statement at the end of the plugin file
+
+```
+class GcsPlugin(AirflowPlugin):
+    name = "Google Cloud Storage Plugin"
+    operators = [FileToGoogleCloudStorageOperator]
+```
+
+6. Add the following code in the `FileToGoogleCloudStorageOperator` class, right after the class declaration:
+
+```
+class FileToGoogleCloudStorageOperator(BaseOperator):
+    """
+    Uploads a file to Google Cloud Storage
+    """
+
+    template_fields = ('src', 'dst', 'bucket')
+```
+
+This turns the fields in the list to templated fields
+
+7. In the DAG file replace import statement 
+`from airflow.contrib.operators import file_to_gcs` with `from airflow.operators import FileToGoogleCloudStorageOperator`
+
+8. Also in the DAG file remove `file_to_gcs` from `file_to_gcs.FileToGoogleCloudStorageOperator` leaving only `FileToGoogleCloudStorageOperator` in the operator declaration
+
+9. SCP `gcs_plugin.py` file to `/opt/app/plugins` folder on the server's instance
+
+10. Restart Airflow Docker containers by running the following command from under `airflow` user on the server instance
+```
+sudo docker-compose -f airflow-1.8.1.yml restart
+```
+
+11. SCP the DAG file to the server and refresh Web UI
+
+12. Run the `upload_to_gcs` task from the Web UI
+
+13. Check your GCS bucket for the uploaded file
 
 
 
