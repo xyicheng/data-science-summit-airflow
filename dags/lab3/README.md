@@ -102,7 +102,7 @@ download_file >> verify_download
 11. Test your code by running the `airflow test` command from inside of worker's Docker container:
 
 ```
-$ airflow test 'lab3' 'verify_download' '2017-10-29'
+$ airflow test 'lab3' 'verify_download_CA' '2017-10-29'
 ```
 
 >Note: Because our code deals with XCom variables, in order for the `airflow test` command to work, the upstream tasks need to be previously executed with `airflow backfill` to have a state. Otherwise our code that pulls XCom variables from upstream tasks will be failing, because the upstream tasks will have nothing returned and will not have a state in Airflow database. 
