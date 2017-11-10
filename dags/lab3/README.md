@@ -79,7 +79,7 @@ def verifyWgetReturnCode(*args, **kwargs):
     )
 
     # Return True if return code was 0 (no errors)
-    if(wget_code == 0):
+    if(wget_code == '0'):
         return True
     else:
         return False
