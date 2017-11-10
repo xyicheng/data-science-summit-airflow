@@ -12,7 +12,7 @@ After completion of this lab you will be able to do the following:
 * Test your custom Python functions from within Airflow
 * Use `FileToGoogleCloudStorageOperator` to upload file to GCS
 * "Hack" community contributed operators to make them work for your use cases
-* Use 
+* Create your own plugin for importing data to BigQuery
 
 ### Step 1. Validate WGET return codes
 
@@ -344,10 +344,10 @@ ingest_to_bq = GoogleCloudStorageToBigQueryOperator(
 )
 ```
 
-5. Add connection from `upload_to_gcs`  to `ingest_to_bq` task inside the country list loop:
+5. Add connection from `upload_to_gcs`  to `ingest_to_bq` task outside of the country list loop:
 
 ```
-download_file >> verify_download >> transform >> upload_to_gcs >> ingest_to_bq
+upload_to_gcs >> ingest_to_bq
 ``` 
 
 6. SCP DAG to the server, refresh UI and observe it failing on message `Broken DAG: [/usr/local/airflow/dags/lab3.py] cannot import name GbqConnector`
@@ -483,8 +483,6 @@ to
 ```
 from airflow.operators import GcsToBqOperator
 ```
-
-Remove previous import statement
 
 7. Change `ingest_to_bq` task in DAG file to have the following definition:
 

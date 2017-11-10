@@ -13,9 +13,11 @@
 # limitations under the License.
 #
 
+import logging
 from airflow.contrib.hooks.gcs_hook import GoogleCloudStorageHook
 from airflow.models import BaseOperator
 from airflow.utils.decorators import apply_defaults
+from airflow.operators.sensors import BaseSensorOperator
 from airflow.plugins_manager import AirflowPlugin
 
 
@@ -72,6 +74,36 @@ class FileToGoogleCloudStorageOperator(BaseOperator):
             mime_type=self.mime_type,
             filename=self.src)
 
+class GoogleCloudStorageObjectSensor(BaseSensorOperator):
+    """
+    Checks for the existence of a file in Google Cloud Storage.
+    """
+    template_fields = ('bucket', 'object')
+    ui_color = '#f0eee4'
+
+    @apply_defaults
+    def __init__(
+            self,
+            bucket,
+            object,
+            google_cloud_conn_id='google_cloud_storage_default',
+            delegate_to=None,
+            *args,
+            **kwargs):
+        super(GoogleCloudStorageObjectSensor, self).__init__(*args, **kwargs)
+        self.bucket = bucket
+        self.object = object
+        self.google_cloud_conn_id = google_cloud_conn_id
+        self.delegate_to = delegate_to
+
+    def poke(self, context):
+        logging.info('Sensor checks existence of : %s, %s', self.bucket, self.object)
+        hook = GoogleCloudStorageHook(
+            google_cloud_storage_conn_id=self.google_cloud_conn_id,
+            delegate_to=self.delegate_to)
+        return hook.exists(self.bucket, self.object)
+
 class GcsPlugin(AirflowPlugin):
     name = "Google Cloud Storage Plugin"
-    operators = [FileToGoogleCloudStorageOperator]
+    operators = [FileToGoogleCloudStorageOperator,
+      GoogleCloudStorageObjectSensor]
