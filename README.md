@@ -39,6 +39,6 @@ The following lab exercises are available as part of the training:
 
 1. [Launching Airflow Server on Google Cloud](dags/lab1)
 2. [Using BashOperator and WGET to download files](dags/lab2)
-3. [Using PythonOperator and community contributed operators to validate file downloads, cleanse the data, merge into a consolidated file, upload it to GCS and import to BigQuery] (dags/lab3)
+3. [Using PythonOperator and community contributed operators to upload file it to GCS and import to BigQuery](dags/lab3)
 4. [Building GCS Sensor](dags/lab4)
 
