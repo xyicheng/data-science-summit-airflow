@@ -293,7 +293,7 @@ This turns the fields in the list to templated fields
 
 8. Also in the DAG file remove `file_to_gcs` from `file_to_gcs.FileToGoogleCloudStorageOperator` leaving only `FileToGoogleCloudStorageOperator` in the operator declaration
 
-9. SCP `gcs_plugin.py` file to `/opt/app/plugins` folder on the server's instance
+9. SCP `gcs_plugin.py` file to `/opt/airflow/plugins` folder on the server's instance
 
 10. Restart Airflow Docker containers by running the following command from under `airflow` user on the server instance
 ```
@@ -344,7 +344,14 @@ ingest_to_bq = GoogleCloudStorageToBigQueryOperator(
     destination_project_dataset_table='{{ var.value.shazam_bq_table }}${{ ds_nodash }}',
     source_format='CSV',
     field_delimiter='\t',
-    schema_fields=['row_num', 'country', 'partner_report_date', 'track', 'artist', 'isrcs'],
+    schema_fields=[  {'name': 'row_num', 'type': 'string', 'mode': 'nullable'},
+      {'name': 'id', 'type': 'string', 'mode': 'nullable'},
+      {'name': 'country', 'type': 'string', 'mode': 'nullable'},
+      {'name': 'partner_report_date', 'type': 'date', 'mode': 'nullable'},
+      {'name': 'track', 'type': 'string', 'mode': 'nullable'},
+      {'name': 'artist', 'type': 'string', 'mode': 'nullable'},
+      {'name': 'isrcs', 'type': 'string', 'mode': 'nullable'},
+      {'name': 'load_datetime', 'type': 'timestamp', 'mode': 'nullable'} ],
     create_disposition='CREATE_IF_NEEDED',
     write_disposition='WRITE_TRUNCATE',
     google_cloud_storage_conn_id='google_cloud_storage_default',
