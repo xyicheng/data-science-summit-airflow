@@ -253,6 +253,17 @@ $ gsutil mb gs://<your project name>
 * Keyfile Path: `/opt/app/<your project name>-key.json`
 * Scopes: `https://www.googleapis.com/auth/bigquery`
 
+### Google Cloud Connection
+1. From Airflow UI go to `Admin -> Connections`
+
+2. Create `google_cloud_default` connection.
+
+3. Add the following values to the connection properties
+* Conn Name: `google_cloud_default`
+* Conn Type: `Google Cloud Platform`
+* Project ID: `<your project>`
+* Keyfile Path: `/opt/app/<your project name>-key.json`
+* Scopes: `https://www.googleapis.com/auth/devstorage.read_write`
 
 ### Step 12. Configure Airflow Variables
 1. From Airflow UI go to `Admin -> Variables`
