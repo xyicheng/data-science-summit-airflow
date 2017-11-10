@@ -43,7 +43,7 @@ verify_download = ShortCircuitOperator(
     ),
     python_callable=verifyWgetReturnCode,
     provide_context=True,
-    op_kwargs=[('country', country)]
+    op_kwargs=[('country', country)],
     dag=dag
 )
     
