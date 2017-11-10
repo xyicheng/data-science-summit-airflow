@@ -183,9 +183,17 @@ def transformData(country, ds_nodash, *args, **kwargs):
 
 >Note: Please note the other way custom parameters and default variables can be passed from the context into a Python function. In `verifyWgetReturnCode` function, we obtained value of the `country` parameter from `kwargs`, but here we passed `country` and `ds_nodash` explicitely as arguments of the Python function. `country` is a custom parameter that we pass via `op_kwargs` parameter, but `ds_nodash` is a default variable so it doesn't need to be explicitely stated in the operator, because it gets passed with the context. Any default variables can be passed in this fashion as long as  `provide_context` is set to `True`.
 
-4. SCP changed file and backfill the DAG on `2019-10-29`
+4. Set dependency between `verify_download` and `transform` tasks
 
-5. Check /tmp/shazam_combined_20171029.txt file to be properly transformed and having records from all 3 files
+
+```
+download_file >> verify_download >> transform
+```
+
+
+5. SCP changed file and backfill the DAG on `2019-10-29`
+
+6. Check /tmp/shazam_combined_20171029.txt file to be properly transformed and having records from all 3 files
 
 ### Step 3. Using `FileToGoogleCloudStorageOperator`to copy the generated combined file to GCS
 
